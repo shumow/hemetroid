@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Hemetroid is a retro sci-fi platform shooter. Find a way out of the facility.">
+  <title>Hemetroid · Deep Facility</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">HEMETROID / AREA PLAYTESTS</p>
+        <h1>HEMETROID<span>.</span></h1>
+      </div>
+      <p class="room"><span id="room-number">01</span> <span id="room-name">THE AIRLOCK</span></p>
+    </header>
+
+    <div class="readout">
+      <div class="health">SUIT <span id="health" aria-label="3 of 3 health">◆ ◆ ◆</span></div>
+      <p id="objective" role="status">STANDING BY</p>
+      <span id="upgrade" hidden>◆ DOUBLE JUMP</span>
+      <span id="dash-upgrade" hidden>◆ FLUSH DASH</span>
+    </div>
+
+    <div class="screen">
+      <canvas id="game" width="640" height="360" tabindex="0" aria-label="Hemetroid game" aria-describedby="controls"></canvas>
+      <div id="room-labels" aria-hidden="true"></div>
+      <section id="overlay" aria-labelledby="message-title">
+        <p class="eyebrow" id="message-label">AREA PLAYTESTS</p>
+        <h2 id="message-title">Hemetroid</h2>
+        <p id="message-body">Loading the facility.</p>
+        <ul id="area-list" hidden></ul>
+        <div class="actions" id="actions">
+          <button type="button" disabled>Loading…</button>
+        </div>
+      </section>
+    </div>
+
+    <footer id="controls">
+      <span><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd> Move</span>
+      <span><kbd>Space</kbd> / <kbd>X</kbd> Jump</span>
+      <span><kbd>Z</kbd> / <kbd>J</kbd> Fire</span>
+      <span id="dash-control" hidden><kbd>C</kbd> Dash</span>
+      <span><kbd>R</kbd> Retry from checkpoint</span>
+      <button id="pause" type="button" hidden>Pause <kbd>Esc</kbd></button>
+      <button id="sound-toggle" type="button" aria-label="Mute sound" aria-pressed="false" disabled>
+        <span id="sound-state">Sound on</span> <kbd>M</kbd>
+      </button>
+    </footer>
+    <p id="save-status" role="status" hidden></p>
+    <noscript>Enable JavaScript to play Hemetroid.</noscript>
+  </main>
+  <dialog id="developer-settings" aria-labelledby="developer-settings-title">
+    <form method="dialog">
+      <p class="eyebrow">INTERNAL TOOLS</p>
+      <h2 id="developer-settings-title">Developer Settings</h2>
+      <label class="developer-option">
+        <input id="developer-manual-save" type="checkbox" autocomplete="off">
+        Show Save Game in the pause menu
+      </label>
+      <p class="developer-note">This setting resets when you reload the page.</p>
+      <button type="submit">Close</button>
+    </form>
+  </dialog>
+  <script type="module" src="./main.mjs"></script>
+</body>
+</html>
