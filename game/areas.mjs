@@ -9,7 +9,7 @@ export const areas = {
     description: "Blast the patrols and find Double Jump.",
     entry: { room: "airlock", spawn: "entry" },
     checkpoint: CHECKPOINT,
-    rooms: ["airlock", "junction", "boss", "upper"],
+    rooms: ["airlock", "junction", "boss", "upper", "maintenance"],
     reward: "doubleJump",
   },
   pipeworks: {

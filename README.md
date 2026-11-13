@@ -1,8 +1,9 @@
 # Hemetroid
 
-Hemetroid is a work-in-progress browser Metroidvania. The first playtest covers 12 rooms across Deep Facility, Pipeworks, and Overflow Vault.
+Hemetroid is a work-in-progress browser Metroidvania. The connected campaign runs through Deep Facility, Pipeworks, and Overflow Vault, with a scrolling Intake, a pause map, and an optional maintenance detour.
 
-- [Download the WIP build](releases/hemetroid-0.1.0-wip.1.zip)
+- [Download the 0.2.0 WIP candidate](releases/hemetroid-0.2.0-wip.1.zip)
+- [Download the original 0.1.0 area playtests](releases/hemetroid-0.1.0-wip.1.zip)
 - [Launch instructions, controls, and developer settings](game/README.md)
 - [Development plan](DEVELOPMENT_PLAN.md)
 - [Third-party notices](game/THIRD_PARTY_NOTICES.md)

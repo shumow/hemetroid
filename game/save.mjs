@@ -1,4 +1,5 @@
 import { areas, FIRST_AREA } from "./areas.mjs";
+import { newAreaProgress, validLocation } from "./campaign.mjs";
 import { CHECKPOINT, rooms } from "./rooms.mjs";
 
 export const SAVE_KEY = "hemetroid.progress";
@@ -41,6 +42,31 @@ function validRun(run, area) {
     (run.source === "auto" || run.source === "manual") && Number.isFinite(run.savedAt) && run.savedAt >= 0;
 }
 
+function readCampaign(value) {
+  if (!isRecord(value) || !validLocation(value.checkpoint) || !isRecord(value.areas) ||
+      !Array.isArray(value.visited) || !Array.isArray(value.gates) ||
+      typeof value.suitPatch !== "boolean" || (value.relay !== null && !validLocation(value.relay))) return null;
+  const states = {};
+  for (const id of Object.keys(areas)) {
+    if (!Object.hasOwn(value.areas, id)) continue;
+    const state = value.areas[id];
+    if (!isRecord(state)) return null;
+    states[id] = newAreaProgress();
+    for (const flag of Object.keys(states[id])) {
+      if (typeof state[flag] !== "boolean") return null;
+      states[id][flag] = state[flag];
+    }
+  }
+  return {
+    checkpoint: value.checkpoint,
+    areas: states,
+    visited: [...new Set(value.visited.filter(id => typeof id === "string" && Object.hasOwn(rooms, id)))],
+    gates: [...new Set(value.gates.filter(id => typeof id === "string"))],
+    relay: value.relay,
+    suitPatch: value.suitPatch,
+  };
+}
+
 export function loadProfile(storage) {
   const profile = createProfile();
   let raw;
@@ -67,6 +93,11 @@ export function loadProfile(storage) {
           else status = "invalid";
         }
         if (save.completed[id] === true) profile.completed[id] = true;
+      }
+      if (Object.hasOwn(save, "campaign")) {
+        const campaign = readCampaign(save.campaign);
+        if (campaign) profile.campaign = campaign;
+        else status = "invalid";
       }
       return { status, profile };
     }

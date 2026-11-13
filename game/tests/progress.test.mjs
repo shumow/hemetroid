@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { areas, campaignCheckpoint, FIRST_AREA, isAreaUnlocked } from "../areas.mjs";
 import { CHECKPOINT, rooms } from "../rooms.mjs";
-import { SAVE_KEY, loadProfile, writeProfile } from "../save.mjs";
+import { arriveAtArea, campaignFromLegacy, createCampaign, hasCampaignAbility, roomDoors, validLocation } from "../campaign.mjs";
+import { SAVE_KEY, createProfile, loadProfile, writeProfile } from "../save.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -138,4 +139,48 @@ test("every exit, entry, and checkpoint points to an existing room entrance", ()
       if (door.to) assert.ok(rooms[door.to]?.spawns[door.spawn], `${id}: ${door.label}`);
     }
   }
+});
+
+test("connected campaign checkpoints advance only on first forward handoffs", () => {
+  const profile = createProfile();
+  profile.campaign = createCampaign();
+  const intake = roomDoors(rooms.upper, true).find(door => door.forward);
+  const toVault = roomDoors(rooms.spillway, true).find(door => door.forward);
+  const backToPipe = roomDoors(rooms["lift-entry"], true).find(door => door.area === "pipeworks");
+  assert.equal(arriveAtArea(profile, FIRST_AREA, intake).room, "intake");
+  assert.equal(profile.completed[FIRST_AREA], true);
+  assert.equal(profile.campaign.checkpoint.area, "pipeworks");
+  arriveAtArea(profile, "pipeworks", toVault);
+  assert.equal(profile.completed.pipeworks, true);
+  assert.equal(arriveAtArea(profile, "overflow-vault", backToPipe).room, "spillway");
+  arriveAtArea(profile, FIRST_AREA, intake);
+  assert.deepEqual(profile.campaign.checkpoint, { area: "overflow-vault", room: "lift-entry", spawn: "entry" });
+});
+
+test("connected saves preserve local boss and pickup state, visited gates, and Suit Patch", () => {
+  const storage = memoryStorage();
+  const profile = createProfile();
+  profile.completed[FIRST_AREA] = true;
+  profile.completed.pipeworks = true;
+  profile.campaign = campaignFromLegacy(profile);
+  assert(hasCampaignAbility(profile.campaign, "doubleJump"));
+  assert(hasCampaignAbility(profile.campaign, "flushDash"));
+  assert(profile.campaign.areas[FIRST_AREA].bossDefeated);
+  profile.campaign.visited.push("junction", "maintenance");
+  profile.campaign.gates.push("junction:MAINTENANCE");
+  profile.campaign.suitPatch = true;
+  assert(writeProfile(profile, storage));
+  assert.deepEqual(loadProfile(storage), { status: "saved", profile });
+});
+
+test("all connected exits resolve to a valid arrival in the intended area", () => {
+  const roomOwners = new Map(Object.entries(areas).flatMap(([id, area]) => area.rooms.map(room => [room, id])));
+  for (const [id, room] of Object.entries(rooms)) {
+    for (const door of roomDoors(room, true)) {
+      if (!door.to) continue;
+      assert(validLocation({ area: door.area ?? roomOwners.get(id), room: door.to, spawn: door.spawn }), door.label);
+    }
+  }
+  assert(roomDoors(rooms.upper, false).some(door => door.finish));
+  assert(!roomDoors(rooms.intake, false).some(door => door.area));
 });

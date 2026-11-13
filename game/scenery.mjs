@@ -5,9 +5,15 @@ import { WIDTH, HEIGHT, FLOOR } from "./rooms.mjs";
 export function createRoomLabels(layer) {
   const labels = [];
   let count = 0;
+  let cameraLeft = 0;
   return {
-    begin() { count = 0; },
+    begin(left = 0) {
+      count = 0;
+      cameraLeft = left;
+    },
     label(text, x, y, color, kind = "") {
+      x -= cameraLeft;
+      if (x < -180 || x > WIDTH + 100) return;
       const index = count++;
       if (!labels[index]) {
         const node = document.createElement("span");
@@ -34,12 +40,13 @@ export function drawRoom(k, label, room, doorOpen, checkpointActive, checkpoint,
   const panel = (x, y, width, height, color) => {
     k.drawRect({ pos: k.vec2(x, y), width, height, color: k.Color.fromHex(color) });
   };
+  const width = room.width ?? WIDTH;
   const background = room.vault ? "#252039" : room.pipeworks ? "#112a32" : "#111e30";
-  panel(0, 0, WIDTH, HEIGHT, background);
-  panel(0, 0, WIDTH, 48, "#0a1421");
-  panel(0, 46, WIDTH, 3, room.accent);
+  panel(0, 0, width, HEIGHT, background);
+  panel(0, 0, width, 48, "#0a1421");
+  panel(0, 46, width, 3, room.accent);
 
-  for (let x = 26; x < WIDTH; x += 86) {
+  for (let x = 26; x < width; x += 86) {
     panel(x, 56, 69, 230, "#192a3c");
     panel(x + 3, 60, 63, 157, "#142438");
     panel(x + 9, 70, 51, 3, "#233d50");
@@ -48,14 +55,14 @@ export function drawRoom(k, label, room, doorOpen, checkpointActive, checkpoint,
     panel(x + 60, 236, 4, 39, "#273e51");
   }
 
-  panel(0, 145, WIDTH, 31, "#0e1a29");
-  panel(0, 145, WIDTH, 2, "#213b4c");
-  for (let x = 8; x < WIDTH; x += 16) panel(x, 151, 2, 19, "#1a2c3f");
-  panel(0, 285, WIDTH, 4, "#0c1724");
+  panel(0, 145, width, 31, "#0e1a29");
+  panel(0, 145, width, 2, "#213b4c");
+  for (let x = 8; x < width; x += 16) panel(x, 151, 2, 19, "#1a2c3f");
+  panel(0, 285, width, 4, "#0c1724");
   if (room.pipeworks) {
-    panel(0, 121, WIDTH, 14, "#193e49");
-    panel(0, 122, WIDTH, 3, "#345d66");
-    for (let x = 39; x < WIDTH; x += 100) panel(x, 119, 5, 19, "#4c7174");
+    panel(0, 121, width, 14, "#193e49");
+    panel(0, 122, width, 3, "#345d66");
+    for (let x = 39; x < width; x += 100) panel(x, 119, 5, 19, "#4c7174");
   }
   if (room.vault) {
     for (const x of [111, 306, 494]) {
@@ -88,7 +95,7 @@ export function drawRoom(k, label, room, doorOpen, checkpointActive, checkpoint,
     panel(x + 9, feet - 65, 36, 4, lamp);
     panel(x + 9, feet - 56, 16, 51, open ? "#133b3c" : "#283749");
     panel(x + 29, feet - 56, 16, 51, open ? "#133b3c" : "#283749");
-    label(door.label, Math.min(x, WIDTH - door.label.length * 7 - 6), feet - 90, lamp);
+    label(door.label, Math.min(x, width - door.label.length * 7 - 6), feet - 90, lamp);
     if (!open && door.lock) {
       const requirement = { doubleJump: "DOUBLE JUMP", flushDash: "FLUSH DASH", liftPowered: "NO POWER" }[door.lock] ?? "LOCKED";
       label(requirement, x, feet - 102, "#ff9878");

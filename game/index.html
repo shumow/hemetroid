@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Hemetroid is a retro sci-fi platform shooter. Find a way out of the facility.">
-  <title>Hemetroid · Deep Facility</title>
+  <title>Hemetroid · Connected Facility</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <main>
     <header>
       <div>
-        <p class="eyebrow">HEMETROID / AREA PLAYTESTS</p>
+        <p class="eyebrow">HEMETROID / CONNECTED FACILITY</p>
         <h1>HEMETROID<span>.</span></h1>
       </div>
       <p class="room"><span id="room-number">01</span> <span id="room-name">THE AIRLOCK</span></p>
@@ -35,6 +35,7 @@
         <div class="actions" id="actions">
           <button type="button" disabled>Loading…</button>
         </div>
+        <div id="map-view" hidden></div>
       </section>
     </div>
 
@@ -42,6 +43,7 @@
       <span><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd> Move</span>
       <span><kbd>Space</kbd> / <kbd>X</kbd> Jump</span>
       <span><kbd>Z</kbd> / <kbd>J</kbd> Fire</span>
+      <span><kbd>↑</kbd> Use marked doors</span>
       <span id="dash-control" hidden><kbd>C</kbd> Dash</span>
       <span><kbd>R</kbd> Retry from checkpoint</span>
       <button id="pause" type="button" hidden>Pause <kbd>Esc</kbd></button>

@@ -1,6 +1,8 @@
 # Hemetroid · Deep Facility
 
-Choose **New Game → Deep Facility** to start the first four-room playtest. Clear the Airlock, defeat the Bulwark, and touch the Double Jump roll. Use it to reach the escape pod and unlock **Pipeworks**. In Pipeworks, defeat the Sluice Guard, collect Flush Dash, and cross the Spillway. In **Overflow Vault**, use both abilities to climb the Split Shaft, power the lift, and escape.
+Choose **New Game → Deep Facility** to start the connected campaign. Clear the Airlock, defeat the Bulwark, and touch the Double Jump roll. Take the transfer at Upper Exit into **Pipeworks**. Defeat the Sluice Guard, collect Flush Dash, and cross the Spillway to **Overflow Vault**. Use both abilities to climb the Split Shaft, power the lift, and escape.
+
+Press **Up** at a transfer to travel in either direction after opening the route. Intake spans more than two screens. After earning Flush Dash, you can return to Relay Junction and enter the Maintenance Bay for a permanent extra health pip.
 
 From this folder, run a local server:
 
@@ -16,21 +18,22 @@ Open [the local game](http://127.0.0.1:8765/) in a desktop browser with WebGL.
 | Jump | Space or X. Press again in midair after unlocking double jump. |
 | Fire | Z or J (hold to keep firing) |
 | Flush Dash | C, after collecting it |
+| Use a transfer or marked door | Up or W |
 | Pause or resume | Esc |
 | Toggle sound | M or the Sound button |
 | Retry from checkpoint | R |
 
-Progress saves automatically at checkpoints and campaign handoffs. **Continue** loads the latest save for the selected area and starts at a safe entrance with earned upgrades intact. Retry starts at the last checkpoint, or the first room if you have yet to reach it. Saves are local to the browser and preview address.
+Progress saves automatically. **Continue Campaign** starts at the furthest campaign handoff with earned abilities and area progress intact. Retry starts at the relay for the current area, or its entrance if you have yet to reach the relay. Open **Pause → Map** to see visited rooms, discovered gates, and the last relay. Saves are local to the browser and preview address.
 
 **New Game** shows a fresh campaign with only Deep Facility available. Starting that area replaces your current campaign and area saves. **Back** lets you leave the menu before replacing anything. Use **Replay Areas** to start an unlocked area while keeping your campaign and saved runs. Selecting an area launches it directly.
 
-Completing an area records a campaign checkpoint. **Continue Campaign** resumes at the next area with its inherited abilities. **Continue** loads an individual area save, including after completing all three tests.
+**Continue** loads an existing standalone area save. Replay Areas uses the area's starting gear and keeps connected campaign progress separate.
 
 Sound starts after you enter a game. Pause silences the effects, and your mute setting is saved separately from your progress.
 
 ## Development
 
-Press **Option + Shift + D** on Mac or **Alt + Shift + D** elsewhere to open Developer Settings. **Show Save Game in the pause menu** restores manual saving for the current page session. Reloading hides the button again. Existing manual saves still load through **Continue**.
+Press **Option + Shift + D** on Mac or **Alt + Shift + D** elsewhere to open Developer Settings. **Show Save Game in the pause menu** restores manual saving for the current page session. Reloading hides the button again. In the campaign, this writes progress at the existing handoff checkpoint. In standalone area runs, it saves a safe entrance in the current room. Existing manual area saves still load through **Continue**.
 
 The game runs as static HTML, CSS, and JavaScript with a local copy of KAPLAY 3001.0.19. It builds on the starter's KAPLAY scene and collider patterns with new gameplay and original art. See [third-party notices](THIRD_PARTY_NOTICES.md).
 

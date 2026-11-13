@@ -27,7 +27,7 @@ The first shareable build is a set of short side-scrolling adventures, with a ta
 | Progress | Area selection launches play directly. Relays handle recovery within an area. Completing an area saves campaign progress, carries forward abilities, and unlocks the next area. Keep manual Save Game available during playtesting. |
 | Presentation | Original or clearly licensed art and audio, health display, control prompts, pause and mute. |
 
-Defer touch controls, gamepads, aiming in multiple directions, inventory, minimap, alternate routes, additional weapons, procedural levels, and a larger campaign. Add any of these only after the core loop works and playtesting gives us a reason to prioritize them.
+For the first WIP, defer touch controls, gamepads, aiming in multiple directions, inventory, maps, alternate routes, additional weapons, procedural levels, and a larger campaign.
 
 ## 0. Verify the migration before committing to the fork
 
@@ -132,4 +132,34 @@ These are rough focused developer days for one person, assuming placeholder art 
 
 **WIP release** The [0.1.0-wip.1 archive](releases/hemetroid-0.1.0-wip.1.zip) contains the static three-area game, launch instructions, release notes, and third-party notices. The extracted archive passed subfolder smoke tests in Chromium, Firefox, and WebKit. These checks covered asset loading, a fresh start, save restoration, and both campaign entrances.
 
-**Next task** Run first-time player sessions to check controls, navigation, and combat readability.
+## 7. Next WIP release: connect the facility
+
+**Carry forward from the roadmap.** Run first-time player sessions on the existing WIP. Watch for unclear controls, missed doors or pickups, and boss attacks that are hard to read. Fix the stalls that show up in those sessions. The original roadmap also called for turning the three area tests into parts of a connected facility.
+
+**Proposed 0.2 scope.** Link the existing rooms through physical exits and return routes. Make campaign traversal preserve earned abilities and the state of the areas already visited. Keep Replay Areas as a way to practice individual sections with their original starting gear. Keep Overflow Vault boss-free.
+
+1. **Connect Deep Facility and Pipeworks first.** Use the Upper Exit and Intake as the first pair of connectors. Give each end a clear destination label and a safe arrival point. Unlock the return route after the first forward crossing. The first successful crossing records Deep Facility completion and the Pipeworks arrival checkpoint together. Returning to an earlier area keeps the most advanced campaign checkpoint.
+2. **Apply the same rules at the Spillway and Lift Entry.** Keep earned Double Jump and Flush Dash when traveling back. Preserve boss defeats, collected rolls, and the Vault lift switch on revisits. Version the campaign save if needed and load existing 0.1 saves with their current unlocks and safe resume points. A standalone replay can retain its own run without rolling back campaign progress.
+3. **Pilot a larger scrolling room.** Once both area connections work in both directions and survive a reload, expand Intake to roughly two or three screens wide. Keep the entrance and return door easy to spot. Use the extra space for distinct encounters and a route that makes Double Jump useful. Check camera tracking, signs, enemy visibility, and safe arrivals from either direction before choosing which other rooms to expand.
+4. **Add a simple area map.** Show visited rooms, the current room, and the last relay. Mark a blocked route once the player sees it and show the required ability when the player has learned what the gate needs. Keep the map usable from the pause screen. Build it from the same room links that drive travel. Use the larger Intake playtest to decide how much detail players need inside each room.
+5. **Add one optional return trip.** Put a visible Flush Dash gate in Deep Facility that leads to a small maintenance room. After earning Dash in Pipeworks, players can return for a labeled toilet paper pickup that adds one permanent suit-health pip. Use this detour to test whether backtracking is rewarding before adding a fourth major area.
+
+### Release checks
+
+- A fresh player can travel through all three areas using in-world exits. A return trip never drops earned abilities, resets a defeated boss, or repeats a collected pickup.
+- Reloading immediately after either forward crossing resumes at the new area checkpoint. Returning to an earlier area, retrying at a relay, and replaying an area all preserve the furthest campaign handoff.
+- An existing 0.1 save still loads. The optional suit upgrade stays collected through retry, travel, and reload.
+- The larger Intake reads clearly while scrolling. Players can locate both exits, and camera movement keeps threats and signs visible in time to react.
+- First-time players can find the next route and tell a blocked gate from an unexplored one. The static package passes the existing browser and subfolder checks.
+
+**0.2 WIP candidate.** Both transfers, scrolling Intake, the pause map, and Maintenance Bay are in the [0.2.0-wip.1 archive](releases/hemetroid-0.2.0-wip.1.zip). The extracted build passed subfolder smoke checks in Chromium, Firefox, and WebKit. Those checks covered a fresh start, the map, automatic campaign resume, and both arrival checkpoints from older saves. First-time player sessions are still pending, especially for door and gate readability and the longer Intake.
+
+## 8. Reveal the toilet through exploration
+
+Set the connected facility in the plumbing beneath one enormous toilet. Arrange the pause map as a side view. Deep Facility forms the tank, Pipeworks traces the rim and bowl, and Overflow Vault curls down through the trap and pedestal. The optional Maintenance Bay sticks out from the tank as the flush handle.
+
+Reveal rooms as the player visits them and draw connecting passages once both rooms are known. Keep the room names, current location, last relay, and discovered ability gates readable as the map fills in. The first few rooms should look like an ordinary facility schematic. The toilet shape should come together by the time the player reaches the Escape Lift, with the handle as a bonus for players who make the maintenance detour.
+
+**Done when** a first-time player can navigate from the map and recognize the finished shape without a hint. Check that the early map gives away only explored rooms and that the main route makes a recognizable silhouette even when the player skips Maintenance Bay.
+
+**Playtest status.** The local build reveals the map room by room. A fresh campaign playthrough reached Escape Lift with all 12 main-route rooms visible and the flush handle still hidden. Chromium, Firefox, and WebKit checks covered the completed map and its Back button. First-time player feedback on the reveal is pending.

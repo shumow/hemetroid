@@ -1,5 +1,7 @@
 import kaplay from "./lib/kaplay.mjs";
-import { areas, campaignCheckpoint, FIRST_AREA, isAreaUnlocked } from "./areas.mjs";
+import { areas, FIRST_AREA, isAreaUnlocked } from "./areas.mjs";
+import { arriveAtArea, campaignFromLegacy, createCampaign, gateKey, hasCampaignAbility, newAreaProgress, roomDoors } from "./campaign.mjs";
+import { renderMap } from "./map.mjs";
 import { FLOOR, HEIGHT, WIDTH, rooms } from "./rooms.mjs";
 import { createProfile, loadProfile, writeProfile } from "./save.mjs";
 import { createRoomLabels, drawRoom } from "./scenery.mjs";
@@ -10,6 +12,7 @@ const roomLabels = createRoomLabels(document.querySelector("#room-labels"));
 const overlay = document.querySelector("#overlay");
 const actions = document.querySelector("#actions");
 const areaList = document.querySelector("#area-list");
+const mapView = document.querySelector("#map-view");
 const pauseButton = document.querySelector("#pause");
 const soundButton = document.querySelector("#sound-toggle");
 const soundState = document.querySelector("#sound-state");
@@ -68,15 +71,18 @@ const keys = {
   jump: [" ", "x"],
   fire: ["z", "j"],
   dash: ["c"],
+  travel: ["arrowup", "w"],
 };
 const gameKeys = new Set(Object.values(keys).flat());
 const heldKeys = new Set();
 let jumpRequested = false;
 let dashRequested = false;
+let travelRequested = false;
 let { status: storageStatus, profile } = loadProfile();
 let areaId = FIRST_AREA;
 let location = areas[FIRST_AREA].entry;
 let progress;
+let inCampaign = false;
 let preserveRun = false;
 let health = MAX_HEALTH;
 let mode = "menu";
@@ -87,6 +93,7 @@ function clearInput() {
   heldKeys.clear();
   jumpRequested = false;
   dashRequested = false;
+  travelRequested = false;
 }
 
 function showOverlay(label, title, description, choices) {
@@ -94,6 +101,7 @@ function showOverlay(label, title, description, choices) {
   document.querySelector("#message-title").textContent = title;
   document.querySelector("#message-body").textContent = description;
   areaList.hidden = true;
+  mapView.hidden = true;
   actions.replaceChildren(...choices.map(({ label, run, developerOnly }) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -116,14 +124,23 @@ function showSaveStatus(message) {
 }
 
 function refreshHealth() {
-  healthDisplay.textContent = Array.from({ length: MAX_HEALTH }, (_, i) => i < health ? "◆" : "◇").join(" ");
-  healthDisplay.setAttribute("aria-label", `${health} of ${MAX_HEALTH} health`);
+  const maximum = maxHealth();
+  healthDisplay.textContent = Array.from({ length: maximum }, (_, i) => i < health ? "◆" : "◇").join(" ");
+  healthDisplay.setAttribute("aria-label", `${health} of ${maximum} health`);
+}
+
+function maxHealth() {
+  return MAX_HEALTH + Number(inCampaign && profile.campaign.suitPatch);
 }
 
 function refreshUpgrades() {
-  upgrade.hidden = !progress.doubleJump;
-  dashUpgrade.hidden = !progress.flushDash;
-  dashControl.hidden = !progress.flushDash;
+  upgrade.hidden = !hasAbility("doubleJump");
+  dashUpgrade.hidden = !hasAbility("flushDash");
+  dashControl.hidden = !hasAbility("flushDash");
+}
+
+function hasAbility(ability) {
+  return inCampaign ? hasCampaignAbility(profile.campaign, ability) : progress[ability];
 }
 
 function setRoomLabel(room) {
@@ -139,21 +156,31 @@ function persistProfile() {
 }
 
 function saveProgress(source = "auto", resume = location) {
+  if (inCampaign) return persistProfile();
   if (source === "auto" && preserveRun) return true;
   profile.runs[areaId] = { ...progress, resume, source, savedAt: Date.now() };
   return persistProfile();
 }
 
-function goToRoom(room, spawn) {
+function goToRoom(room, spawn, saveArrival = false) {
   sound.silence();
   location = { room, spawn };
   jumpRequested = false;
   dashRequested = false;
+  travelRequested = false;
+  if (inCampaign) {
+    const { visited } = profile.campaign;
+    if (!visited.includes(room)) {
+      visited.push(room);
+      saveArrival = true;
+    }
+    if (saveArrival) persistProfile();
+  }
   k.go("room", room, spawn);
 }
 
 function loadRunAt({ room, spawn }) {
-  health = MAX_HEALTH;
+  health = maxHealth();
   clearInput();
   k.debug.paused = false;
   sound.setPaused(false);
@@ -171,6 +198,7 @@ function resumeFromCheckpoint() {
 }
 
 function startArea(id) {
+  inCampaign = false;
   areaId = id;
   preserveRun = Boolean(profile.runs[id]);
   progress = {
@@ -183,7 +211,8 @@ function startArea(id) {
   resumeFromCheckpoint();
 }
 
-function continueGame(id, fromEntry = false) {
+function continueGame(id) {
+  inCampaign = false;
   areaId = id;
   const run = profile.runs[id];
   if (!run) {
@@ -193,7 +222,28 @@ function continueGame(id, fromEntry = false) {
   preserveRun = false;
   const { checkpointActive, bossDefeated, doubleJump, flushDash = false, liftPowered = false, resume } = run;
   progress = { checkpointActive, bossDefeated, doubleJump, flushDash, liftPowered };
-  loadRunAt(fromEntry ? areas[id].entry : resume);
+  loadRunAt(resume);
+}
+
+function selectCampaignArea(id) {
+  areaId = id;
+  progress = profile.campaign.areas[id] ??= newAreaProgress();
+}
+
+function playCampaign() {
+  profile.campaign ??= campaignFromLegacy(profile);
+  inCampaign = true;
+  preserveRun = false;
+  const { checkpoint } = profile.campaign;
+  selectCampaignArea(checkpoint.area);
+  loadRunAt(checkpoint);
+}
+
+function travelToArea(door) {
+  const arrival = arriveAtArea(profile, areaId, door);
+  selectCampaignArea(arrival.area);
+  clearInput();
+  goToRoom(arrival.room, arrival.spawn, true);
 }
 
 function showTitle() {
@@ -207,12 +257,12 @@ function showTitle() {
   if (Object.keys(profile.runs).length) {
     choices.unshift({ label: "Continue", run: () => showAreaMenu("continue") });
   }
-  const checkpoint = campaignCheckpoint(profile);
-  if (areas[checkpoint]?.entry) {
-    choices.unshift({ label: "Continue Campaign", run: () => continueGame(checkpoint, true) });
+  const checkpoint = hasProgress() ? (profile.campaign ?? campaignFromLegacy(profile)).checkpoint : null;
+  if (checkpoint) {
+    choices.unshift({ label: "Continue Campaign", run: playCampaign });
   }
-  const description = checkpoint ? `Campaign checkpoint · ${areas[checkpoint].name}`
-    : campaignComplete() ? "Campaign complete · All three areas cleared." : "Choose a four-room test in the facility.";
+  const description = campaignComplete() ? "Campaign complete · All three areas cleared."
+    : checkpoint ? `Campaign checkpoint · ${areas[checkpoint.area].name}` : "Explore the connected facility.";
   showOverlay("AREA PLAYTESTS", "Something got loose.", description, choices);
 }
 
@@ -221,7 +271,7 @@ function campaignComplete() {
 }
 
 function hasProgress() {
-  return Object.keys(profile.runs).length > 0 || Object.keys(profile.completed).length > 0;
+  return Boolean(profile.campaign) || Object.keys(profile.runs).length > 0 || Object.keys(profile.completed).length > 0;
 }
 
 function showAreaMenu(kind) {
@@ -270,7 +320,8 @@ function showAreaMenu(kind) {
       if (continuing) return continueGame(id);
       if (fresh) {
         profile = menuProfile;
-        persistProfile();
+        profile.campaign = createCampaign();
+        return playCampaign();
       }
       startArea(id);
     });
@@ -306,9 +357,18 @@ function showPause(message = preserveRun ? "This replay keeps your existing save
   pauseButton.hidden = true;
   showOverlay("RUN PAUSED", "Paused", message, [
     { label: "Resume", run: resumePlay },
+    ...(inCampaign ? [{ label: "Map", run: showMap }] : []),
     { label: "Save Game", run: confirmManualSave, developerOnly: true },
     { label: "Return to Title", run: returnToTitle },
   ]);
+}
+
+function showMap() {
+  const campaign = profile.campaign;
+  const relay = campaign.relay ? rooms[campaign.relay.room].name : "None reached";
+  showOverlay("NAVIGATION", "Facility map", `Last relay · ${relay}`, [{ label: "Back", run: () => showPause() }]);
+  renderMap(mapView, campaign, location.room);
+  mapView.hidden = false;
 }
 
 function toggleDeveloperSettings() {
@@ -338,7 +398,8 @@ function confirmManualSave() {
   const save = () => {
     preserveRun = false;
     const saved = saveProgress("manual");
-    showPause(saved ? `Saved in ${rooms[location.room].name}.` : "Could not save to this browser.");
+    const message = inCampaign ? "Campaign progress saved." : `Saved in ${rooms[location.room].name}.`;
+    showPause(saved ? message : "Could not save to this browser.");
   };
   if (!preserveRun) {
     save();
@@ -364,7 +425,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.code === "Escape" && (mode === "playing" || mode === "paused")) {
     event.preventDefault();
-    if (mode === "playing") showPause();
+    if (mode === "playing" || !mapView.hidden) showPause();
     else resumePlay();
   }
   if (event.code === "KeyR" && (mode === "playing" || mode === "retry")) resumeFromCheckpoint();
@@ -377,6 +438,7 @@ canvas.addEventListener("keydown", (event) => {
   heldKeys.add(key);
   if (keys.jump.includes(key)) jumpRequested = true;
   if (keys.dash.includes(key)) dashRequested = true;
+  if (keys.travel.includes(key)) travelRequested = true;
 });
 document.addEventListener("keyup", (event) => heldKeys.delete(event.key.toLowerCase()));
 canvas.addEventListener("blur", clearInput);
@@ -418,7 +480,8 @@ function spawnEnemy(spec) {
 }
 
 k.scene("room", (roomId, entrance) => {
-  const room = rooms[roomId];
+  const room = { ...rooms[roomId], doors: roomDoors(rooms[roomId], inCampaign) };
+  const worldWidth = room.width ?? WIDTH;
   const area = areas[areaId];
   const checkpoint = area.checkpoint;
   const spawn = room.spawns[entrance];
@@ -432,6 +495,7 @@ k.scene("room", (roomId, entrance) => {
   let ended = false;
   let enemies = [];
   let rewardPickup;
+  let pickupLabel;
 
   setRoomLabel(room);
   refreshHealth();
@@ -439,17 +503,22 @@ k.scene("room", (roomId, entrance) => {
 
   function doorOpen(door) {
     if (door.lock === "patrol") return enemies.every((enemy) => enemy.hp <= 0);
+    if (door.requiresArea && !profile.completed[door.requiresArea]) return false;
+    if (door.lock === "doubleJump" || door.lock === "flushDash") return hasAbility(door.lock);
     if (door.lock) return progress[door.lock];
     return Boolean(door.to || door.finish);
   }
 
   k.add([{ draw: () => {
-    roomLabels.begin();
+    roomLabels.begin(k.camPos().x - WIDTH / 2);
     drawRoom(k, roomLabels.label, room, doorOpen, progress.checkpointActive,
       roomId === checkpoint.room ? checkpoint : undefined, progress.liftPowered);
     drawBossStatus();
+    const transfer = room.doors.find(door => (door.area || door.interact) && doorOpen(door) && nearDoor(player, door));
+    if (transfer) roomLabels.label(transfer.area ? "↑ TRAVEL" : "↑ ENTER",
+      transfer.x + 27, transfer.feet - 47, "#a1ffbb", "pickup");
     if (rewardPickup) {
-      roomLabels.label(room.reward.label, rewardPickup.pos.x + ROLL.w / 2,
+      roomLabels.label(pickupLabel, rewardPickup.pos.x + ROLL.w / 2,
         rewardPickup.pos.y - 24, "#a1ffbb", "pickup");
     }
     roomLabels.end();
@@ -464,6 +533,11 @@ k.scene("room", (roomId, entrance) => {
     k.area({ shape: new k.Rect(k.vec2(4, 1), PLAYER.w - 8, PLAYER.h - 1) }),
     k.body({ jumpForce: PLAYER.jump }), k.opacity(), "player",
   ]);
+  function trackCamera() {
+    const center = Math.round(player.pos.x + PLAYER.w / 2);
+    k.camPos(Math.max(WIDTH / 2, Math.min(worldWidth - WIDTH / 2, center)), HEIGHT / 2);
+  }
+  trackCamera();
   player.flipX = facing < 0;
   player.onBeforePhysicsResolve((collision) => {
     if (!collision.target.is("ledge")) return;
@@ -487,39 +561,55 @@ k.scene("room", (roomId, entrance) => {
       return;
     }
     objective.textContent = {
-      junction: progress.doubleJump ? "DOUBLE JUMP TO THE UPPER EXIT" : "FIND THE UPGRADE IN THE BOSS WING →",
-      upper: "REACH THE ESCAPE POD",
+      junction: hasAbility("doubleJump") ? "DOUBLE JUMP TO THE UPPER EXIT" : "FIND THE UPGRADE IN THE BOSS WING →",
+      upper: inCampaign ? "REACH THE PIPEWORKS TRANSFER" : "REACH THE ESCAPE POD",
       intake: "DOUBLE JUMP TO THE PUMP JUNCTION",
-      "pump-junction": progress.flushDash ? "DOUBLE JUMP TO THE SPILLWAY" : "FIND FLUSH DASH IN THE VALVE CHAMBER →",
+      "pump-junction": hasAbility("flushDash") ? "DOUBLE JUMP TO THE SPILLWAY" : "FIND FLUSH DASH IN THE VALVE CHAMBER →",
       spillway: "DOUBLE JUMP, THEN DASH ACROSS THE GAP",
       "lift-entry": "CROSS THE BARRIER TO REACH THE SPLIT SHAFT",
       "split-shaft": progress.liftPowered ? "LIFT POWERED · TAKE THE LOWER DOOR" : "CLIMB TO THE OVERFLOW CHAMBER",
       "overflow-chamber": progress.liftPowered ? "← RETURN TO THE SPLIT SHAFT" : "CROSS THE BASIN AND TOUCH THE LIFT SWITCH",
       "escape-lift": "DOUBLE JUMP AND DASH TO THE EXIT LIFT",
+      maintenance: profile.campaign?.suitPatch ? "← RETURN TO RELAY JUNCTION" : "DASH ACROSS FOR A SUIT PATCH",
     }[roomId];
   }
   updateObjective();
   if (room.reward && progress.bossDefeated && !progress[room.reward.ability]) spawnReward();
+  if (inCampaign && room.suitPatch && !profile.campaign.suitPatch) {
+    spawnRoll(room.suitPatch, () => {
+      profile.campaign.suitPatch = true;
+      health = Math.min(health + 1, maxHealth());
+      refreshHealth();
+      objective.textContent = "SUIT PATCH INSTALLED · MAX HEALTH +1";
+    });
+  }
 
   function spawnReward() {
-    const { x, y, ability } = room.reward;
+    const { ability } = room.reward;
+    spawnRoll(room.reward, () => {
+      progress[ability] = true;
+      refreshUpgrades();
+      objective.textContent = ability === "flushDash" ? "FLUSH DASH ONLINE · PRESS C TO DASH"
+        : "DOUBLE JUMP ONLINE · PRESS JUMP AGAIN IN MIDAIR";
+    });
+  }
+
+  function spawnRoll({ x, y, label }, collect) {
     const pickup = k.add([
       k.pos(x, y),
       k.area({ shape: new k.Rect(k.vec2(0), ROLL.w, ROLL.h) }),
       "powerup",
     ]);
     rewardPickup = pickup;
+    pickupLabel = label;
     pickup.add([k.pos(-14, 0), k.sprite("toilet-paper")]);
     pickup.onCollide("player", () => {
-      if (ended || mode !== "playing" || progress[ability]) return;
-      progress[ability] = true;
-      refreshUpgrades();
+      if (ended || mode !== "playing" || rewardPickup !== pickup) return;
       k.destroy(pickup);
       rewardPickup = undefined;
+      collect();
       sound.play("pickup");
       saveProgress();
-      objective.textContent = ability === "flushDash" ? "FLUSH DASH ONLINE · PRESS C TO DASH"
-        : "DOUBLE JUMP ONLINE · PRESS JUMP AGAIN IN MIDAIR";
     });
   }
 
@@ -532,19 +622,16 @@ k.scene("room", (roomId, entrance) => {
     if (won) {
       mode = "menu";
       const reward = area.reward;
-      if (!reward || progress[reward]) profile.completed[areaId] = true;
+      if ((inCampaign || !profile.campaign) && (!reward || progress[reward])) profile.completed[areaId] = true;
       const saved = preserveRun ? persistProfile() : saveProgress();
-      const next = campaignCheckpoint(profile);
       const choices = [
         { label: "Area Menu", run: () => showAreaMenu("replay") },
         { label: "Return to Title", run: returnToTitle },
       ];
-      if (areas[next]?.entry) choices.unshift({
-        label: `Continue to ${areas[next].name}`, run: () => continueGame(next, true),
-      });
+      if (!inCampaign && !campaignComplete()) choices.unshift({ label: "Continue Campaign", run: playCampaign });
       objective.textContent = "FACILITY ESCAPED";
       const message = saved ? "Campaign progress saved." : "Progress is available for this session only.";
-      const result = campaignComplete() ? "All three areas cleared." : `${area.name} cleared.`;
+      const result = inCampaign && campaignComplete() ? "All three areas cleared." : `${area.name} cleared.`;
       showOverlay("MISSION COMPLETE", "You made it out.", `${result} ${message}`, choices);
     } else {
       mode = "retry";
@@ -641,7 +728,7 @@ k.scene("room", (roomId, entrance) => {
         return;
       }
       wave.pos.x += direction * travel;
-      if (wave.pos.x > WIDTH || wave.pos.x < -WAVE.w) k.destroy(wave);
+      if (wave.pos.x > worldWidth || wave.pos.x < -WAVE.w) k.destroy(wave);
     });
   }
 
@@ -709,7 +796,7 @@ k.scene("room", (roomId, entrance) => {
     }
     if (jumpRequested) {
       jumpRequested = false;
-      if (dashRemaining <= 0 && (grounded || (progress.doubleJump && !usedAirJump))) {
+      if (dashRemaining <= 0 && (grounded || (hasAbility("doubleJump") && !usedAirJump))) {
         usedAirJump = !grounded;
         player.jump();
         sound.play(grounded ? "jump" : "doubleJump");
@@ -724,7 +811,7 @@ k.scene("room", (roomId, entrance) => {
     }
     if (dashRequested) {
       dashRequested = false;
-      if (progress.flushDash && !usedDash) {
+      if (hasAbility("flushDash") && !usedDash) {
         usedDash = true;
         dashDirection = facing;
         dashRemaining = DASH.time;
@@ -741,7 +828,8 @@ k.scene("room", (roomId, entrance) => {
       player.gravityScale = 1;
       if (direction !== 0) player.move(direction * PLAYER.speed, 0);
     }
-    player.pos.x = Math.max(5, Math.min(WIDTH - PLAYER.w - 5, player.pos.x));
+    player.pos.x = Math.max(5, Math.min(worldWidth - PLAYER.w - 5, player.pos.x));
+    trackCamera();
 
     if (keys.fire.some((key) => heldKeys.has(key)) && cooldown === 0) {
       fire();
@@ -778,25 +866,40 @@ k.scene("room", (roomId, entrance) => {
 
     if (roomId === checkpoint.room && !progress.checkpointActive && player.pos.x >= checkpoint.x - 22) {
       progress.checkpointActive = true;
-      health = MAX_HEALTH;
+      health = maxHealth();
       refreshHealth();
       sound.play("relay");
+      if (inCampaign) profile.campaign.relay = { area: areaId, room: checkpoint.room, spawn: checkpoint.spawn };
       saveProgress("auto", { room: checkpoint.room, spawn: checkpoint.spawn });
     }
 
     if (room.liftSwitch && !progress.liftPowered) checkLiftSwitch();
-    const door = room.doors.find((exit) => doorOpen(exit) && nearDoor(player, exit));
+    if (inCampaign) {
+      const left = k.camPos().x - WIDTH / 2;
+      const { gates } = profile.campaign;
+      const newlySeen = room.doors.filter(door => door.lock && door.lock !== "patrol" &&
+        door.x + 54 >= left && door.x < left + WIDTH && !doorOpen(door) &&
+        !gates.includes(gateKey(roomId, door)));
+      if (newlySeen.length) {
+        gates.push(...newlySeen.map(door => gateKey(roomId, door)));
+        saveProgress();
+      }
+    }
+    const door = room.doors.find(exit => (travelRequested || (!exit.area && !exit.interact)) && doorOpen(exit) && nearDoor(player, exit));
+    travelRequested = false;
     if (door) {
       ended = true;
-      if (door.finish) finish(true);
+      if (door.area) travelToArea(door);
+      else if (door.finish) finish(true);
       else goToRoom(door.to, door.spawn);
     }
   });
 });
 
 k.scene("standby", () => {
+  k.camPos(WIDTH / 2, HEIGHT / 2);
   setRoomLabel(rooms.airlock);
-  health = MAX_HEALTH;
+  health = maxHealth();
   refreshHealth();
   upgrade.hidden = true;
   dashUpgrade.hidden = true;
